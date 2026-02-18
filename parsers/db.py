@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+from .normalize import normalize_for_match
 
 DB_PATH_DEFAULT = Path("db") / "ai.sqlite"
 
@@ -43,38 +44,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
             answer_html TEXT NOT NULL,
             attachments_raw TEXT,
             created_at_imported TEXT DEFAULT (datetime('now')),
-            content_hash TEXT
+            content_hash TEXT,
+            question_norm TEXT,
+            answer_plain_norm TEXT
         );
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts
-        USING fts5(
-            question,
-            answer_plain,
-            content='entries',
-            content_rowid='id'
-        );
-
-        CREATE TRIGGER IF NOT EXISTS entries_ai
-        AFTER INSERT ON entries
-        BEGIN
-            INSERT INTO entries_fts(rowid, question, answer_plain)
-            VALUES (new.id, new.question, new.answer_plain);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS entries_ad
-        AFTER DELETE ON entries
-        BEGIN
-            DELETE FROM entries_fts WHERE rowid = old.id;
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS entries_au
-        AFTER UPDATE ON entries
-        BEGIN
-            UPDATE entries_fts
-            SET question = new.question,
-                answer_plain = new.answer_plain
-            WHERE rowid = new.id;
-        END;
 
         CREATE INDEX IF NOT EXISTS idx_entries_created_at
             ON entries(created_at);
@@ -84,17 +57,74 @@ def init_schema(conn: sqlite3.Connection) -> None:
         """
     )
 
-    # Ensure content_hash column and unique index exist even if the table
-    # was created earlier without them.
     cursor.execute("PRAGMA table_info(entries)")
     columns = {row[1] for row in cursor.fetchall()}
+
     if "content_hash" not in columns:
         cursor.execute("ALTER TABLE entries ADD COLUMN content_hash TEXT")
+    if "question_norm" not in columns:
+        cursor.execute("ALTER TABLE entries ADD COLUMN question_norm TEXT")
+    if "answer_plain_norm" not in columns:
+        cursor.execute("ALTER TABLE entries ADD COLUMN answer_plain_norm TEXT")
     cursor.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_content_hash "
         "ON entries(content_hash)"
     )
+    conn.commit()
 
+    # Backfill norm columns for rows that have NULL (existing data)
+    cursor.execute(
+        "SELECT id, question, answer_plain FROM entries WHERE question_norm IS NULL"
+    )
+    rows = cursor.fetchall()
+    for row in rows:
+        q_norm = normalize_for_match(row["question"] or "")
+        a_norm = normalize_for_match(row["answer_plain"] or "")
+        cursor.execute(
+            "UPDATE entries SET question_norm = ?, answer_plain_norm = ? WHERE id = ?",
+            (q_norm, a_norm, row["id"]),
+        )
+    conn.commit()
+
+    # Replace FTS with norm-based index (drop old, create new, rebuild)
+    cursor.executescript(
+        """
+        DROP TRIGGER IF EXISTS entries_ai;
+        DROP TRIGGER IF EXISTS entries_ad;
+        DROP TRIGGER IF EXISTS entries_au;
+        DROP TABLE IF EXISTS entries_fts;
+        """
+    )
+    cursor.executescript(
+        """
+        CREATE VIRTUAL TABLE entries_fts USING fts5(
+            question_norm,
+            answer_plain_norm,
+            content='entries',
+            content_rowid='id'
+        );
+
+        CREATE TRIGGER entries_ai AFTER INSERT ON entries
+        BEGIN
+            INSERT INTO entries_fts(rowid, question_norm, answer_plain_norm)
+            VALUES (new.id, new.question_norm, new.answer_plain_norm);
+        END;
+
+        CREATE TRIGGER entries_ad AFTER DELETE ON entries
+        BEGIN
+            DELETE FROM entries_fts WHERE rowid = old.id;
+        END;
+
+        CREATE TRIGGER entries_au AFTER UPDATE ON entries
+        BEGIN
+            UPDATE entries_fts
+            SET question_norm = new.question_norm,
+                answer_plain_norm = new.answer_plain_norm
+            WHERE rowid = new.id;
+        END;
+        """
+    )
+    cursor.execute("INSERT INTO entries_fts(entries_fts) VALUES('rebuild')")
     conn.commit()
 
 
@@ -121,6 +151,8 @@ def insert_entry(
     content_hash: str,
 ) -> int:
     """Insert a single row into ``entries`` and return its id."""
+    question_norm = normalize_for_match(question)
+    answer_plain_norm = normalize_for_match(answer_plain)
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -133,9 +165,11 @@ def insert_entry(
             answer_plain,
             answer_html,
             attachments_raw,
-            content_hash
+            content_hash,
+            question_norm,
+            answer_plain_norm
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             agent,
@@ -147,6 +181,8 @@ def insert_entry(
             answer_html,
             attachments_raw,
             content_hash,
+            question_norm,
+            answer_plain_norm,
         ),
     )
     conn.commit()

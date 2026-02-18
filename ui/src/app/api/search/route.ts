@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Entry, getDb } from "@/lib/db";
+import { normalizeForMatch } from "@/lib/normalize";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,9 +15,11 @@ export async function GET(request: Request) {
 
   const db = getDb();
 
-  // Build a prefix-search FTS query so that e.g. "exp" matches "export".
+  // Normalize query (strip diacritics) so "moz" matches "možná"; prefix FTS.
   const terms = q.split(/\s+/).filter(Boolean);
-  const ftsQuery = terms.map((t) => `${t}*`).join(" ");
+  const ftsQuery = terms
+    .map((t) => `${normalizeForMatch(t)}*`)
+    .join(" ");
 
   const rows = db
     .prepare<unknown[], Entry>(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Entry, getDb } from "@/lib/db";
+import { normalizeForMatch } from "@/lib/normalize";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +12,10 @@ export async function GET(request: Request) {
   let rows: Entry[];
 
   if (q) {
-    // export s fulltext filtrem
+    const terms = q.split(/\s+/).filter(Boolean);
+    const ftsQuery = terms
+      .map((t) => `${normalizeForMatch(t)}*`)
+      .join(" ");
     rows = db
       .prepare<unknown[], Entry>(
         `
@@ -24,7 +28,7 @@ export async function GET(request: Request) {
         ORDER BY e.created_at DESC, e.id DESC
         `,
       )
-      .all(...(agent ? [q, agent] : [q]));
+      .all(...(agent ? [ftsQuery, agent] : [ftsQuery]));
   } else if (agent) {
     rows = db
       .prepare<unknown[], Entry>(
