@@ -1,20 +1,18 @@
 import type { Entry, AgentFilter } from "../types";
 import { Agents } from "../types";
 
-export type { AgentFilter };
-
-export type GetEntriesParams = {
+type GetEntriesParams = {
   agent?: AgentFilter;
   limit?: number;
 };
 
-export type SearchEntriesParams = {
+type SearchEntriesParams = {
   q: string;
   agent?: AgentFilter;
   limit?: number;
 };
 
-export type ExportJsonParams = {
+type ExportJsonParams = {
   agent?: AgentFilter;
   q?: string;
 };
