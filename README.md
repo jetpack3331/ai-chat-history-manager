@@ -2,6 +2,10 @@
 
 **Version 1.0.0-beta** — Beta release; feedback and issues are welcome.
 
+**Why this repo exists.** Chat tools like Gemini, ChatGPT, and Claude are great for answers, but they make it hard to search or reuse your own history. You end up scrolling, losing old threads, or re-asking the same things. This project gives you a **local** copy of your AI conversations: you import exports (e.g. from Google Takeout), store them in a small database on your machine, and search **all of them in one place**—no matter whether the reply came from Gemini, OpenAI, Claude, or another agent. One search box, one history. Your data never leaves your computer, and you can find that tip, recipe, or code snippet from months ago in seconds.
+
+---
+
 AI chat history manager • AI database • AI chat manager • AI log explorer • AI parser • Gemini history parser •
 OpenAI chat archive • Claude chat archive • SQLite FTS search for AI conversations
 
