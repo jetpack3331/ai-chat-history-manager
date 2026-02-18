@@ -42,18 +42,16 @@ If you prefer not to install anything locally and want to run everything in Dock
 
 - **Display of recent entries** (by default the latest 10 by `created_at`).
 - **Full‑text search** across questions and answers (SQLite FTS5).
-- **Split layout**:
-  - desktop: question on the left, answer on the right (50/50),
-  - mobile: question and answer stacked vertically.
+- **Responsive layout**: entries as cards; expand to see full question and answer (side‑by‑side on desktop, stacked on small screens).
 - **Answer in Markdown or plain text** – a toggle per entry.
 - **List operations**:
   - expand/collapse each entry,
   - multi‑select: select all, clear selection,
   - **Delete** (physically delete from DB),
   - **Remove from view** (hide from current list, keep in DB).
-- **Search & pinning results**:
-  - a single search input searches both questions and answers,
-  - results highlight the matched text,
+- **Search & add results**:
+  - a search input in the top bar searches both questions and answers,
+  - results appear in an overlay with highlighted matches,
   - clicking a result adds that entry to the top of the main list.
 - **Reset DB for a chosen agent** – delete all records for `gemini` / `openai` / `claude`.
 - **Export to JSON** – filtered by agent and optional full‑text query.
@@ -85,9 +83,8 @@ npm run dev
 
 Open `http://localhost:3000` in your browser.
 
-- If the database is empty, the home page will show information with an example command
-  for running the Python importer.
-- After importing, click **“Reload”** in the top menu.
+- If the database is empty, after the first load the page shows a short message (*No data yet.*).
+  Import data using the Python importers (see [GEMINI.md](GEMINI.md) / [CLAUDE.md](CLAUDE.md)), then click **Reload** in the top bar.
 
 ---
 
@@ -95,8 +92,8 @@ Open `http://localhost:3000` in your browser.
 
 From the UI:
 
-- Select an agent (e.g. `gemini`) in the dropdown in the top toolbar.
-- Click **“Reset DB”** and confirm the dialog.
+- In the **bottom bar**, choose an agent (All / Gemini / Claude).
+- Click **Reset DB** and confirm the dialog. (Reset is disabled when “All” is selected.)
 
 From the Python CLI (alternative):
 
@@ -108,7 +105,7 @@ python -m parsers.reset_agent --agent gemini
 
 ### Export to JSON
 
-In the top toolbar click **“Export JSON”**:
+In the **bottom bar** click **Export JSON**:
 
 - if an agent is selected, only records for that agent are exported,
 - if a full‑text query is also set, only the matching subset is exported.
