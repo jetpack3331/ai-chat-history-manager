@@ -4,6 +4,8 @@
 
 **Why this repo exists.** Chat tools like Gemini, ChatGPT, and Claude are great for answers, but they make it hard to search or reuse your own history. You end up scrolling, losing old threads, or re-asking the same things. This project gives you a **local** copy of your AI conversations: you import exports (e.g. from Google Takeout), store them in a small database on your machine, and search **all of them in one place**—no matter whether the reply came from Gemini, OpenAI, Claude, or another agent. One search box, one history. Your data never leaves your computer, and you can find that tip, recipe, or code snippet from months ago in seconds.
 
+**How to import data?** [Gemini](GEMINI.md) | [Claude](CLAUDE.md)
+
 ---
 
 AI chat history manager • AI database • AI chat manager • AI log explorer • AI parser • Gemini history parser •
@@ -22,10 +24,11 @@ If you prefer not to install anything locally and want to run everything in Dock
 - `parsers/`
   - `db.py` – SQLite schema (`entries` + FTS5 `entries_fts` + triggers, indexes, reset helper).
   - `gemini_parser.py` – HTML → SQLite importer for Gemini exports.
+  - `claude_parser.py` – JSON → SQLite importer for Claude exports (`conversations.json`).
   - `reset_agent.py` – CLI tool to delete all rows for a given agent.
   - `config.json` – parser configuration (e.g. question prefix for Gemini).
 - `source/`
-  - Default location for HTML exports (e.g. `gemini.html` from Google Takeout / Activity).
+  - Default location for import sources (e.g. `gemini.html` from Google Takeout, `claude.json` from Claude export).
 - `db/`
   - Location of the SQLite file `ai.sqlite` (created automatically).
 - `ui/`
@@ -67,74 +70,6 @@ pip install -r requirements.txt
 ```
 
 > On some systems you may need to use `python3` / `pip3` instead of `python` / `pip`.
-
----
-
-### First database import (Gemini)
-
-In the project root there is a Python parser for the Gemini HTML export (`source/gemini.html`).
-
-To import **all** records (recommended for normal use):
-
-```bash
-python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite
-```
-
-To import only a limited number of records for testing (e.g. first 20):
-
-```bash
-python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --limit 20
-```
-
-If you run the importer multiple times on the same HTML export, existing
-records are detected via a content hash and are **not** duplicated.
-
-#### Parser configuration (`parsers/config.json`)
-
-Before running the Gemini importer, you must configure how the parser
-recognises the start of a user question.
-
-The file `parsers/config.json` looks like this by default:
-
-```json
-{
-  "gemini": {
-    "question_prefix": "Pokyn"
-  }
-}
-```
-
-- `question_prefix` must match the text that appears at the beginning of
-  each question in your Gemini export (for example `Pokyn` in Czech or
-  `Prompt` in English).
-- If `gemini.question_prefix` is missing, the importer will exit with an
-  explicit error asking you to configure it.
-
-Example for an English export where questions start with `Prompt`:
-
-```json
-{
-  "gemini": {
-    "question_prefix": "Prompt"
-  }
-}
-```
-
-#### Using the example Gemini file
-
-If you just want to try the tool quickly without downloading your own
-Gemini export, you can use the example file:
-
-- `examples/gemini.html`
-
-Either:
-
-- copy it into `source/gemini.html`, or
-- point the importer to it explicitly:
-
-```bash
-python -m parsers.gemini_parser --input examples/gemini.html --db db/ai.sqlite
-```
 
 ---
 
@@ -205,23 +140,11 @@ Then open `http://localhost:3000` in your browser as usual.
 The `docker-compose.yml` configuration mounts:
 
 - `./db` → `/app/db` (SQLite file lives here),
-- `./source` → `/app/source` (place your `gemini.html` export here),
+- `./source` → `/app/source` (place your `gemini.html` and/or `claude.json` exports here),
 - `./parsers/config.json` → `/app/parsers/config.json` (read‑only).
 
 Your data and configuration stay on the host, the container just runs the
-parser and UI.
-
-#### Run the parser inside Docker
-
-To run the Gemini importer inside the container (for example on a real
-export you put into `source/gemini.html`):
-
-```bash
-docker compose run --rm ai-database \
-  python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite
-```
-
-You can also pass `--limit` for test imports as before.
+parser and UI. To run an importer inside the container, see [GEMINI.md](GEMINI.md) or [CLAUDE.md](CLAUDE.md) for the exact commands.
 
 ---
 
