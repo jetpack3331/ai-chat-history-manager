@@ -1,10 +1,11 @@
+import { Agents } from "../types";
 import { agentBadgeClasses } from "../utils";
 
 export function AgentBadge({ agent }: { agent: string }) {
   const label =
-    agent === "gemini"
+    agent === Agents.GEMINI
       ? "Gemini"
-      : agent === "claude"
+      : agent === Agents.CLAUDE
         ? "Claude"
         : agent === "openai"
           ? "OpenAI"

@@ -1,5 +1,6 @@
 import React from "react";
 import { normalizePreserveLength } from "@/lib/normalize";
+import { Agents } from "./types";
 
 export function highlight(text: string, query: string): React.ReactElement | string {
   const safeText = text ?? "";
@@ -77,9 +78,9 @@ export function stripHtml(s: string): string {
 export function agentBadgeClasses(agent: string): string {
   const a = (agent ?? "").toLowerCase();
   switch (a) {
-    case "gemini":
+    case Agents.GEMINI:
       return "bg-cyan-600 text-white border-cyan-500/80";
-    case "claude":
+    case Agents.CLAUDE:
       return "bg-amber-600 text-white border-amber-500/80";
     case "openai":
       return "bg-emerald-600 text-white border-emerald-500/80";

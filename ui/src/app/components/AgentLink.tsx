@@ -1,4 +1,5 @@
-type AgentKey = "all" | "gemini" | "claude";
+import type { AgentFilter } from "../types";
+import { Agents } from "../types";
 
 export function AgentLink({
   label,
@@ -7,14 +8,14 @@ export function AgentLink({
   onClick,
 }: {
   label: string;
-  agentKey: AgentKey;
+  agentKey: AgentFilter;
   active: boolean;
   onClick: () => void | Promise<void>;
 }) {
   const baseClasses =
-    agentKey === "all"
+    agentKey === Agents.ALL
       ? "bg-slate-600 text-slate-100 border-slate-500/80"
-      : agentKey === "gemini"
+      : agentKey === Agents.GEMINI
         ? "bg-cyan-600 text-white border-cyan-500/80"
         : "bg-amber-600 text-white border-amber-500/80";
   return (

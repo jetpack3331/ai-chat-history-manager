@@ -1,8 +1,8 @@
 "use client";
 
+import type { AgentFilter } from "../types";
+import { Agents } from "../types";
 import { AgentLink } from "./AgentLink";
-
-type ActiveAgent = "all" | "gemini" | "claude";
 
 export function AgentBar({
   activeAgent,
@@ -10,8 +10,8 @@ export function AgentBar({
   onReset,
   onExport,
 }: {
-  activeAgent: ActiveAgent;
-  onSelectAgent: (agent: ActiveAgent) => void | Promise<void>;
+  activeAgent: AgentFilter;
+  onSelectAgent: (agent: AgentFilter) => void | Promise<void>;
   onReset: () => void;
   onExport: () => void;
 }) {
@@ -26,23 +26,23 @@ export function AgentBar({
             <div className="flex items-center gap-2 text-sm">
               <AgentLink
                 label="All"
-                agentKey="all"
-                active={activeAgent === "all"}
-                onClick={() => void onSelectAgent("all")}
+                agentKey={Agents.ALL}
+                active={activeAgent === Agents.ALL}
+                onClick={() => void onSelectAgent(Agents.ALL)}
               />
               <span className="text-slate-600">|</span>
               <AgentLink
                 label="Gemini"
-                agentKey="gemini"
-                active={activeAgent === "gemini"}
-                onClick={() => void onSelectAgent("gemini")}
+                agentKey={Agents.GEMINI}
+                active={activeAgent === Agents.GEMINI}
+                onClick={() => void onSelectAgent(Agents.GEMINI)}
               />
               <span className="text-slate-600">|</span>
               <AgentLink
                 label="Claude"
-                agentKey="claude"
-                active={activeAgent === "claude"}
-                onClick={() => void onSelectAgent("claude")}
+                agentKey={Agents.CLAUDE}
+                active={activeAgent === Agents.CLAUDE}
+                onClick={() => void onSelectAgent(Agents.CLAUDE)}
               />
             </div>
           </div>
@@ -50,9 +50,9 @@ export function AgentBar({
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={onReset}
-              disabled={activeAgent === "all"}
+              disabled={activeAgent === Agents.ALL}
               className={`px-3 py-1.5 rounded-lg text-sm ${
-                activeAgent === "all"
+                activeAgent === Agents.ALL
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                   : "bg-amber-600 hover:bg-amber-500 cursor-pointer"
               }`}

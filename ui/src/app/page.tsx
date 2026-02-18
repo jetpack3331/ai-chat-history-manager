@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useRef } from "react";
 
-import type { Entry } from "./types";
+import type { Entry, AgentFilter } from "./types";
+import { Agents, parseAgentFilter } from "./types";
+import {
+  getEntries,
+  searchEntries,
+  deleteEntry,
+  bulkDeleteEntries,
+  resetAgent,
+  getExportJsonBlob,
+} from "./services/entriesApi";
 import { AgentBar } from "./components/AgentBar";
 import { EntryCard } from "./components/EntryCard";
 import { SearchResultsOverlay } from "./components/SearchResultsOverlay";
@@ -15,18 +24,14 @@ export default function HomePage() {
   const [showPlain, setShowPlain] = useState<Record<number, boolean>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<Record<number, boolean>>({});
-  const [activeAgent, setActiveAgent] = useState<"all" | "gemini" | "claude">(
-    "all",
-  );
+  const [activeAgent, setActiveAgent] = useState<AgentFilter>(Agents.ALL);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const saved = (localStorage.getItem("activeAgent") || "").trim();
-    const initial =
-      saved === "gemini" || saved === "claude" || saved === "all"
-        ? (saved as "all" | "gemini" | "claude")
-        : "all";
+    const initial = parseAgentFilter(saved);
     setActiveAgent(initial);
     void reload(initial);
   }, []);
@@ -35,19 +40,17 @@ export default function HomePage() {
     localStorage.setItem("activeAgent", activeAgent);
   }, [activeAgent]);
 
-  async function reload(agentOverride?: "all" | "gemini" | "claude") {
+  async function reload(agentOverride?: AgentFilter) {
     setLoading(true);
     try {
       const agent = agentOverride ?? activeAgent;
-      const params = new URLSearchParams({ limit: "10" });
-      if (agent !== "all") params.set("agent", agent);
-      const res = await fetch(`/api/entries?${params.toString()}`);
-      const data: Entry[] = await res.json();
+      const data = await getEntries({ agent, limit: 10 });
       setEntries(data);
       setSelected({});
       setExpanded(Object.fromEntries(data.map((e) => [e.id, false])));
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   }
 
@@ -58,10 +61,11 @@ export default function HomePage() {
       setSearchOpen(false);
       return;
     }
-    const params = new URLSearchParams({ q, limit: "5" });
-    if (activeAgent !== "all") params.set("agent", activeAgent);
-    const res = await fetch(`/api/search?${params.toString()}`);
-    const data: Entry[] = await res.json();
+    const data = await searchEntries({
+      q,
+      agent: activeAgent,
+      limit: 5,
+    });
     setSearchResults(data);
     setSearchOpen(data.length > 0);
   }
@@ -106,12 +110,7 @@ export default function HomePage() {
       .filter(([, v]) => v)
       .map(([k]) => Number(k));
     if (!ids.length) return;
-    const res = await fetch("/api/entries-bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    if (!res.ok) return;
+    await bulkDeleteEntries(ids);
     setEntries((prev) => prev.filter((e) => !ids.includes(e.id)));
     setSelected({});
   }
@@ -126,28 +125,22 @@ export default function HomePage() {
   }
 
   async function handleResetAgent() {
-    if (activeAgent === "all") return;
+    if (activeAgent === Agents.ALL) return;
     if (
       !window.confirm(
         `Are you sure you want to delete all records for agent "${activeAgent}"?`,
       )
     )
       return;
-    const res = await fetch("/api/reset-agent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: activeAgent }),
-    });
-    if (res.ok) await reload();
+    await resetAgent(activeAgent);
+    await reload();
   }
 
   async function exportJson() {
-    const params = new URLSearchParams();
-    if (activeAgent !== "all") params.set("agent", activeAgent);
-    if (search.trim()) params.set("q", search.trim());
-    const res = await fetch(`/api/export.json?${params.toString()}`);
-    if (!res.ok) return;
-    const blob = await res.blob();
+    const blob = await getExportJsonBlob({
+      agent: activeAgent,
+      q: search.trim() || undefined,
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -156,7 +149,7 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
-  async function handleSelectAgent(agent: "all" | "gemini" | "claude") {
+  async function handleSelectAgent(agent: AgentFilter) {
     setActiveAgent(agent);
     await reload(agent);
     if (search.trim()) void runSearch(search);
@@ -258,23 +251,10 @@ export default function HomePage() {
           <div className="text-sm text-slate-400">Loading…</div>
         )}
 
-        {!loading && entries.length === 0 && (
-          <section className="rounded border border-dashed border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-200 space-y-2">
-            <p className="font-semibold">
-              There are currently no records to display in the database.
-            </p>
-            <p>
-              Run the Python importer on the backend to populate the SQLite
-              database from the Gemini HTML export (or another agent):
-            </p>
-            <pre className="whitespace-pre-wrap bg-slate-950/60 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100">
-              {`cd ..  # go to project root (ai-chat-history-manager)
-python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --limit 20`}
-            </pre>
-            <p className="text-xs text-slate-400">
-              After a successful import, click “Reload” in the top menu.
-            </p>
-          </section>
+        {hasLoadedOnce && !loading && entries.length === 0 && (
+          <p className="text-sm text-slate-400">
+            No data yet.
+          </p>
         )}
 
         <section className="space-y-3">
@@ -296,7 +276,7 @@ python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --l
                   !window.confirm("Delete this entry from the database?")
                 )
                   return;
-                await fetch(`/api/entries/${e.id}`, { method: "DELETE" });
+                await deleteEntry(e.id);
                 setEntries((prev) =>
                   prev.filter((entry) => entry.id !== e.id),
                 );
