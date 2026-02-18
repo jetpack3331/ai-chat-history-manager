@@ -49,7 +49,7 @@ export function snippetAroundMatch(
 
   const half = Math.floor(maxLength / 2);
   let start = Math.max(0, matchIndex - half);
-  let end = Math.min(s.length, start + maxLength);
+  const end = Math.min(s.length, start + maxLength);
   if (end - start < maxLength && start > 0) {
     start = Math.max(0, end - maxLength);
   }
