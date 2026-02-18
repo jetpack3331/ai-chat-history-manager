@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "dead-code": "knip"
+    "dead-code": "knip",
+    "check-updates": "ncu"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -28,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "knip": "^5.84.1",
+    "npm-check-updates": "^19.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
