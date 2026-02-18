@@ -1,6 +1,1 @@
-{
-  "gemini": {
-    "question_prefix": "Pokyn"
-  }
-}
-
+{"gemini":{"question_prefix":"Pokyn"},"claude":{}}
