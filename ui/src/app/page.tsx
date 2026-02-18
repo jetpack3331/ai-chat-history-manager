@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import {
   CheckIcon,
   ClipboardDocumentListIcon,
@@ -32,18 +33,33 @@ export default function HomePage() {
   const [showPlain, setShowPlain] = useState<Record<number, boolean>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selected, setSelected] = useState<Record<number, boolean>>({});
-  const [resetAgent, setResetAgent] = useState<string>("gemini");
+  const [activeAgent, setActiveAgent] = useState<"all" | "gemini" | "claude">(
+    "all",
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    reload();
+    const saved = (localStorage.getItem("activeAgent") || "").trim();
+    const initial =
+      saved === "gemini" || saved === "claude" || saved === "all"
+        ? (saved as "all" | "gemini" | "claude")
+        : "all";
+    setActiveAgent(initial);
+    void reload(initial);
   }, []);
 
-  async function reload() {
+  useEffect(() => {
+    localStorage.setItem("activeAgent", activeAgent);
+  }, [activeAgent]);
+
+  async function reload(agentOverride?: "all" | "gemini" | "claude") {
     setLoading(true);
     try {
-      const res = await fetch("/api/entries?limit=10");
+      const agent = agentOverride ?? activeAgent;
+      const params = new URLSearchParams({ limit: "10" });
+      if (agent !== "all") params.set("agent", agent);
+      const res = await fetch(`/api/entries?${params.toString()}`);
       const data: Entry[] = await res.json();
       setEntries(data);
       setSelected({});
@@ -61,7 +77,12 @@ export default function HomePage() {
       setSearchOpen(false);
       return;
     }
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`);
+    const params = new URLSearchParams({
+      q,
+      limit: "5",
+    });
+    if (activeAgent !== "all") params.set("agent", activeAgent);
+    const res = await fetch(`/api/search?${params.toString()}`);
     const data: Entry[] = await res.json();
     // Filter out entries that are already visible in the main list
     const filtered = data.filter(
@@ -130,10 +151,10 @@ export default function HomePage() {
   }
 
   async function handleResetAgent() {
-    if (!resetAgent) return;
+    if (activeAgent === "all") return;
     if (
       !window.confirm(
-        `Are you sure you want to delete all records for agent "${resetAgent}"?`,
+        `Are you sure you want to delete all records for agent "${activeAgent}"?`,
       )
     ) {
       return;
@@ -141,7 +162,7 @@ export default function HomePage() {
     const res = await fetch("/api/reset-agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent: resetAgent }),
+      body: JSON.stringify({ agent: activeAgent }),
     });
     if (res.ok) {
       await reload();
@@ -150,7 +171,7 @@ export default function HomePage() {
 
   async function exportJson() {
     const params = new URLSearchParams();
-    if (resetAgent) params.set("agent", resetAgent);
+    if (activeAgent !== "all") params.set("agent", activeAgent);
     if (search.trim()) params.set("q", search.trim());
     const res = await fetch(`/api/export.json?${params.toString()}`);
     if (!res.ok) return;
@@ -191,7 +212,7 @@ export default function HomePage() {
           {/* Left actions */}
           <div className="flex items-center gap-2">
             <button
-              onClick={reload}
+              onClick={() => void reload()}
               className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 cursor-pointer"
             >
               Reload
@@ -247,21 +268,14 @@ export default function HomePage() {
 
           {/* Right-side agent controls */}
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-slate-400">Agent:</span>
-              <select
-                value={resetAgent}
-                onChange={(e) => setResetAgent(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs cursor-pointer"
-              >
-                <option value="gemini">gemini</option>
-                <option value="openai">openai</option>
-                <option value="claude">claude</option>
-              </select>
-            </div>
             <button
               onClick={handleResetAgent}
-              className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 cursor-pointer"
+              disabled={activeAgent === "all"}
+              className={`px-3 py-1 rounded ${
+                activeAgent === "all"
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-amber-600 hover:bg-amber-500 cursor-pointer"
+              }`}
             >
               Reset DB
             </button>
@@ -321,7 +335,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <main className="w-[90vw] max-w-[1400px] mx-auto px-2 py-4 space-y-6 min-w-0 overflow-x-hidden">
+      <main className="w-[90vw] max-w-[1400px] mx-auto px-2 py-4 space-y-6 min-w-0 overflow-x-hidden pb-24">
         {loading && <div className="text-sm text-slate-400">Loading…</div>}
 
         {!loading && entries.length === 0 && (
@@ -334,7 +348,7 @@ export default function HomePage() {
               database from the Gemini HTML export (or another agent):
             </p>
             <pre className="whitespace-pre-wrap bg-slate-950/60 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100">
-              {`cd ..  # go to project root (ai-database)
+              {`cd ..  # go to project root (ai-chat-history-manager)
 python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --limit 20`}
             </pre>
             <p className="text-xs text-slate-400">
@@ -485,20 +499,21 @@ python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --l
                               {usePlain ? "Plain text" : "Markdown / HTML"}
                             </span>
                           </div>
-                          <div className="prose prose-invert max-w-full text-sm break-words min-w-0 overflow-x-auto mt-2 flex-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-all [&_code]:max-w-full">
+                          <div className="prose prose-invert max-w-full text-sm break-words min-w-0 overflow-x-auto mt-2 flex-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-all [&_code]:max-w-full [&_p]:mb-3 [&_p]:mt-0 [&_p:first-child]:mt-0 [&_br]:block">
                             {usePlain ? (
                               <pre className="whitespace-pre-wrap text-sm bg-slate-950/40 p-2 rounded border border-slate-800">
                                 {e.answer_plain}
                               </pre>
                             ) : isHtmlLike(e.answer_html) ? (
                               <div
+                                className="[&_p]:mb-3 [&_p]:mt-0 [&_br]:block"
                                 dangerouslySetInnerHTML={{
                                   __html: e.answer_html,
                                 }}
                               />
                             ) : (
                               <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
+                                remarkPlugins={[remarkGfm, remarkBreaks]}
                                 components={{
                                   pre: (props) => (
                                     <pre
@@ -525,7 +540,80 @@ python -m parsers.gemini_parser --input source/gemini.html --db db/ai.sqlite --l
           })}
         </section>
       </main>
+
+      {/* Bottom agent bar */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-[1400px]">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/95 backdrop-blur px-4 py-3 shadow-lg">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-base font-semibold text-slate-200 shrink-0">
+                Agent:
+              </span>
+              <div className="flex items-center gap-2 text-sm">
+                <AgentLink
+                  label="All"
+                  active={activeAgent === "all"}
+                  onClick={async () => {
+                    setActiveAgent("all");
+                    await reload("all");
+                    if (search.trim()) void runSearch(search);
+                  }}
+                />
+                <span className="text-slate-600">|</span>
+                <AgentLink
+                  label="Gemini"
+                  active={activeAgent === "gemini"}
+                  onClick={async () => {
+                    setActiveAgent("gemini");
+                    await reload("gemini");
+                    if (search.trim()) void runSearch(search);
+                  }}
+                />
+                <span className="text-slate-600">|</span>
+                <AgentLink
+                  label="Claude"
+                  active={activeAgent === "claude"}
+                  onClick={async () => {
+                    setActiveAgent("claude");
+                    await reload("claude");
+                    if (search.trim()) void runSearch(search);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Reserved space for future controls */}
+            <div className="flex items-center gap-2 text-xs text-slate-400" />
+          </div>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function AgentLink({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 cursor-pointer transition border ${
+        active
+          ? "border-sky-400 text-sky-200 bg-sky-500/10"
+          : "border-transparent text-slate-200 hover:text-white hover:bg-slate-800/60"
+      }`}
+      aria-pressed={active}
+    >
+      {active && <span className="text-sky-300">●</span>}
+      <span className="font-medium">{label}</span>
+    </button>
   );
 }
 

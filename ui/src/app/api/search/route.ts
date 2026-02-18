@@ -4,6 +4,7 @@ import { Entry, getDb } from "@/lib/db";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") || "").trim();
+  const agent = (searchParams.get("agent") || "").trim();
   const offset = Number(searchParams.get("offset") || "0");
   const limit = Math.min(Number(searchParams.get("limit") || "20"), 100);
 
@@ -25,11 +26,12 @@ export async function GET(request: Request) {
       FROM entries e
       JOIN entries_fts f ON f.rowid = e.id
       WHERE f.entries_fts MATCH ?
+      ${agent ? "AND e.agent = ?" : ""}
       ORDER BY e.created_at DESC, e.id DESC
       LIMIT ? OFFSET ?
       `,
     )
-    .all(ftsQuery, limit, offset);
+    .all(...(agent ? [ftsQuery, agent, limit, offset] : [ftsQuery, limit, offset]));
 
   return NextResponse.json(rows);
 }
