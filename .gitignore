@@ -1,0 +1,7 @@
+# source files, DON'T COMMIT THEM!
+source/*
+!source/.gitkeep
+
+# db files, DON'T COMMIT THEM!
+db/*
+!db/.gitkeep

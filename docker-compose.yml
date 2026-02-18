@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  ai-database:
+    build: .
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    volumes:
+      # Persist database and allow importing HTML from the host
+      - ./db:/app/db
+      - ./source:/app/source
+      - ./parsers/config.json:/app/parsers/config.json:ro
+    environment:
+      - NODE_ENV=production
+
+    # Default command runs the Next.js UI in production mode
+    command: ["npm", "run", "start", "--prefix", "ui"]
+
