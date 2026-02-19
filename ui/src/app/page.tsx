@@ -29,6 +29,11 @@ export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
 
+  const [pageSize, setPageSize] = useState(20);
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   useEffect(() => {
     const saved = (localStorage.getItem("activeAgent") || "").trim();
     const initial = parseAgentFilter(saved);
@@ -40,17 +45,51 @@ export default function HomePage() {
     localStorage.setItem("activeAgent", activeAgent);
   }, [activeAgent]);
 
+  useEffect(() => {
+    if (!hasLoadedOnce) return;
+    setEntries([]);
+    setHasMore(true);
+    void reload();
+  }, [pageSize, sortOrder]);
+
   async function reload(agentOverride?: AgentFilter) {
     setLoading(true);
     try {
       const agent = agentOverride ?? activeAgent;
-      const data = await getEntries({ agent, limit: 10 });
+      const data = await getEntries({
+        agent,
+        limit: pageSize,
+        offset: 0,
+        order: sortOrder,
+      });
       setEntries(data);
+      setHasMore(data.length === pageSize);
       setSelected({});
       setExpanded(Object.fromEntries(data.map((e) => [e.id, false])));
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await getEntries({
+        agent: activeAgent,
+        limit: pageSize,
+        offset: entries.length,
+        order: sortOrder,
+      });
+      setEntries((prev) => [...prev, ...data]);
+      setHasMore(data.length === pageSize);
+      setExpanded((prev) => ({
+        ...prev,
+        ...Object.fromEntries(data.map((e) => [e.id, false])),
+      }));
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -283,6 +322,22 @@ export default function HomePage() {
               }}
             />
           ))}
+          {hasMore && !loadingMore && entries.length > 0 && (
+            <div className="pt-4 pb-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void loadMore()}
+                className="px-6 py-2.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium cursor-pointer transition"
+              >
+                Load more
+              </button>
+            </div>
+          )}
+          {loadingMore && (
+            <p className="text-sm text-slate-400 py-4 text-center">
+              Loading more…
+            </p>
+          )}
         </section>
       </main>
 
@@ -291,6 +346,10 @@ export default function HomePage() {
         onSelectAgent={handleSelectAgent}
         onReset={handleResetAgent}
         onExport={exportJson}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
       />
     </div>
   );

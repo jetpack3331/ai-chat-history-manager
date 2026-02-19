@@ -4,6 +4,8 @@ import { Agents } from "../types";
 type GetEntriesParams = {
   agent?: AgentFilter;
   limit?: number;
+  offset?: number;
+  order?: "asc" | "desc";
 };
 
 type SearchEntriesParams = {
@@ -21,14 +23,21 @@ const defaultLimit = 10;
 const defaultSearchLimit = 5;
 
 /**
- * GET /api/entries – list entries with optional agent filter and limit.
+ * GET /api/entries – list entries with optional agent filter, limit, offset, order.
  */
 export async function getEntries(
   params: GetEntriesParams = {},
 ): Promise<Entry[]> {
-  const { agent = Agents.ALL, limit = defaultLimit } = params;
+  const {
+    agent = Agents.ALL,
+    limit = defaultLimit,
+    offset = 0,
+    order = "desc",
+  } = params;
   const searchParams = new URLSearchParams();
-  searchParams.set("limit", String(Math.min(limit, 100)));
+  searchParams.set("limit", String(Math.min(limit, 1000)));
+  searchParams.set("offset", String(Math.max(0, offset)));
+  searchParams.set("order", order);
   if (agent !== Agents.ALL) searchParams.set("agent", agent);
   const res = await fetch(`/api/entries?${searchParams.toString()}`);
   if (!res.ok) throw new Error(`getEntries failed: ${res.status}`);
