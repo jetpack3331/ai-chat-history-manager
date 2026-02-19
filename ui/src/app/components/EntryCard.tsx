@@ -127,7 +127,7 @@ export function EntryCard({
                     {usePlain ? "Plain text" : "Markdown / HTML"}
                   </span>
                 </div>
-                <div className="prose prose-invert max-w-full text-sm break-words min-w-0 overflow-x-auto mt-2 flex-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-all [&_code]:max-w-full [&_p]:mb-3 [&_p]:mt-0 [&_p:first-child]:mt-0 [&_br]:block">
+                <div className="prose prose-invert max-w-full text-sm break-words min-w-0 overflow-x-auto overflow-y-auto max-h-[60vh] mt-2 flex-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-all [&_code]:max-w-full [&_p]:mb-3 [&_p]:mt-0 [&_p:first-child]:mt-0 [&_br]:block">
                   {usePlain ? (
                     <pre className="whitespace-pre-wrap text-sm bg-slate-950/40 p-2 rounded border border-slate-800">
                       {e.answer_plain}
